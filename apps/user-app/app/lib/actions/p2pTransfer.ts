@@ -24,6 +24,7 @@ export async function p2pTransfer(to: string, amount: number) {
     }
     await prisma.$transaction(async (tx) => {
         // Fix SQL injection here
+        // locking
         await tx.$queryRaw`SELECT * FROM "Balance" WHERE "userId" = ${Number(from)} FOR UPDATE`;
 
         const fromBalance = await tx.balance.findUnique({
@@ -33,9 +34,9 @@ export async function p2pTransfer(to: string, amount: number) {
             throw new Error('Insufficient funds');
           }
           
-          console.log("Above sleep");
-          await new Promise(r=>setTimeout(r, 4000));
-          console.log("Below sleep");
+          // console.log("Above sleep");
+          // await new Promise(r=>setTimeout(r, 4000));
+          // console.log("Below sleep");
 
           await tx.balance.update({
             where: { userId: Number(from) },
@@ -46,7 +47,14 @@ export async function p2pTransfer(to: string, amount: number) {
             where: { userId: toUser.id },
             data: { amount: { increment: amount } },
           });
-          
-          // locking
+
+          await tx.p2pTransfer.create({
+            data:{
+              fromUserId: Number(from),
+              toUserId: toUser.id,
+              amount,
+              timestamp: new Date()
+            }
+          });
     });
 }
